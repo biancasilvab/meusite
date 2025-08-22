@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualização de Remoção em Árvore AVL - Corrigido</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .node {
+            transition: all 0.5s ease;
+            cursor: pointer;
+        }
+        .node:hover {
+            transform: scale(1.1);
+        }
+        .highlight {
+            animation: highlight 1s ease-in-out;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+        @keyframes highlight {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .rotation {
+            animation: rotate 1s ease-in-out;
+        }
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(10deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .code-highlight {
+            background-color: #ffeb3b;
+            transition: background-color 0.3s ease;
+        }
+        .tree-container {
+            overflow: auto;
+            max-width: 100%;
+        }
+        .balanced { background-color: #10B981; }
+        .unbalanced-left { background-color: #EF4444; }
+        .unbalanced-right { background-color: #F59E0B; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-bold text-center text-blue-800 mb-8">Visualização de Árvore AVL</h1>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Painel de Controle -->
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-blue-700">Controles</h2>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Valor do Nó:</label>
+                    <input type="number" id="nodeValue" class="w-full p-2 border border-gray-300 rounded-md" placeholder="Digite um número">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <button onclick="inserirNo()" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md transition-colors">
+                        Inserir Nó
+                    </button>
+                    <button onclick="removerNo()" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md transition-colors">
+                        Remover Nó
+                    </button>
+                </div>
+
+                <div class="mb-6">
+                    <button onclick="gerarArvoreExemplo()" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md transition-colors w-full">
+                        Gerar Árvore de Exemplo
+                    </button>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-md">
+                    <h3 class="font-semibold mb-2">Operação Atual:</h3>
+                    <p id="operacaoAtual" class="text-sm text-gray-600">Nenhuma operação em andamento</p>
+                </div>
+
+                <div class="mt-4 bg-yellow-50 p-3 rounded-md">
+                    <h4 class="font-semibold text-yellow-800">Legenda dos Nós:</h4>
+                    <div class="flex items-center mt-2">
+                        <div class="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                        <span class="text-sm">Balanceado (bal = 0)</span>
+                    </div>
+                    <div class="flex items-center mt-1">
+                        <div class="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
+                        <span class="text-sm">Desbalanceado à direita (bal = 1)</span>
+                    </div>
+                    <div class="flex items-center mt-1">
+                        <div class="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
+                        <span class="text-sm">Desbalanceado à esquerda (bal = -1)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualização da Árvore -->
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-blue-700">Visualização da Árvore AVL</h2>
+                <div class="tree-container" id="treeContainer">
+                    <svg id="treeSVG" width="100%" height="400"></svg>
+                </div>
+                
+                <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-blue-100 p-2 rounded">
+                        <span class="text-sm font-medium">Pré-ordem:</span>
+                        <div id="preOrdem" class="text-xs"></div>
+                    </div>
+                    <div class="bg-green-100 p-2 rounded">
+                        <span class="text-sm font-medium">Ordem Simétrica:</span>
+                        <div id="ordemSimetrica" class="text-xs"></div>
+                    </div>
+                    <div class="bg-purple-100 p-2 rounded">
+                        <span class="text-sm font-medium">Pós-ordem:</span>
+                        <div id="posOrdem" class="text-xs"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Código da Função de Remoção -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mt-8">
+            <h2 class="text-xl font-semibold mb-4 text-blue-700">Informações</h2>
+            <pre class="bg-gray-800 text-green-400 p-4 rounded-md overflow-x-auto text-sm">
+<code id="codigoRemocao">Implementação árvore AVL
+
+22/08/2025
+Bianca Barros
+
+</code>
+            </pre>
+        </div>
+    </div>
+
+    <script>
+        class Node {
+            constructor(valor) {
+                this.valor = valor;
+                this.esq = null;
+                this.dir = null;
+                this.bal = 0; // Fator de balanceamento
+            }
+        }
+
+        let raiz = null;
+        let operacaoAtual = '';
+
+        function atualizarOperacao(mensagem) {
+            document.getElementById('operacaoAtual').textContent = mensagem;
+            operacaoAtual = mensagem;
+        }
+
+        function buscarNo(ptraiz, valor) {
+            if (ptraiz === null || ptraiz.valor === valor) {
+                return ptraiz;
+            }
+            if (valor < ptraiz.valor) {
+                return buscarNo(ptraiz.esq, valor);
+            } else {
+                return buscarNo(ptraiz.dir, valor);
+            }
+        }
+
+        // FUNÇÕES DE ROTAÇÃO CORRIGIDAS
+        function rotacaoDireita(y) {
+            let x = y.esq;
+            let T2 = x.dir;
+            
+            // Realizar rotação
+            x.dir = y;
+            y.esq = T2;
+            
+            // Atualizar fatores de balanceamento
+            y.bal = y.bal + 1 - Math.min(0, x.bal);
+            x.bal = x.bal + 1 + Math.max(0, y.bal);
+            
+            return x;
+        }
+
+        function rotacaoEsquerda(x) {
+            let y = x.dir;
+            let T2 = y.esq;
+            
+            // Realizar rotação
+            y.esq = x;
+            x.dir = T2;
+            
+            // Atualizar fatores de balanceamento
+            x.bal = x.bal - 1 - Math.max(0, y.bal);
+            y.bal = y.bal - 1 + Math.min(0, x.bal);
+            
+            return y;
+        }
+
+        function rotacaoDuplaDireita(z) {
+            z.esq = rotacaoEsquerda(z.esq);
+            return rotacaoDireita(z);
+        }
+
+        function rotacaoDuplaEsquerda(z) {
+            z.dir = rotacaoDireita(z.dir);
+            return rotacaoEsquerda(z);
+        }
+
+        function altura(no) {
+            if (no === null) return 0;
+            return 1 + Math.max(altura(no.esq), altura(no.dir));
+        }
+
+        function atualizarBalanceamento(no) {
+            if (no === null) return;
+            no.bal = altura(no.dir) - altura(no.esq);
+        }
+
+        function balancear(no) {
+            if (no === null) return no;
+            
+            // Atualizar balanceamento
+            atualizarBalanceamento(no);
+            
+            // Caso desbalanceado à esquerda
+            if (no.bal < -1) {
+                if (no.esq.bal <= 0) {
+                    // Rotação simples à direita
+                    return rotacaoDireita(no);
+                } else {
+                    // Rotação dupla à direita
+                    return rotacaoDuplaDireita(no);
+                }
+            }
+            
+            // Caso desbalanceado à direita
+            if (no.bal > 1) {
+                if (no.dir.bal >= 0) {
+                    // Rotação simples à esquerda
+                    return rotacaoEsquerda(no);
+                } else {
+                    // Rotação dupla à esquerda
+                    return rotacaoDuplaEsquerda(no);
+                }
+            }
+            
+            return no;
+        }
+
+        function insAVL(no, valor) {
+            if (no === null) {
+                return new Node(valor);
+            }
+            
+            if (valor < no.valor) {
+                no.esq = insAVL(no.esq, valor);
+            } else if (valor > no.valor) {
+                no.dir = insAVL(no.dir, valor);
+            } else {
+                // Valor duplicado
+                return no;
+            }
+            
+            return balancear(no);
+        }
+
+        function encontrarMinimo(no) {
+            while (no.esq !== null) {
+                no = no.esq;
+            }
+            return no;
+        }
+
+        function remAVL(no, valor) {
+            if (no === null) {
+                return null;
+            }
+            
+            if (valor < no.valor) {
+                no.esq = remAVL(no.esq, valor);
+            } else if (valor > no.valor) {
+                no.dir = remAVL(no.dir, valor);
+            } else {
+                // Nó encontrado
+                if (no.esq === null && no.dir === null) {
+                    return null;
+                } else if (no.esq === null) {
+                    return no.dir;
+                } else if (no.dir === null) {
+                    return no.esq;
+                } else {
+                    // Nó com dois filhos
+                    let temp = encontrarMinimo(no.dir);
+                    no.valor = temp.valor;
+                    no.dir = remAVL(no.dir, temp.valor);
+                }
+            }
+            
+            return balancear(no);
+        }
+
+        function inserirNo() {
+            const valor = parseInt(document.getElementById('nodeValue').value);
+            if (isNaN(valor)) {
+                alert('Por favor, digite um valor válido');
+                return;
+            }
+
+            if (buscarNo(raiz, valor)) {
+                alert('Valor já existe na árvore!');
+                return;
+            }
+
+            atualizarOperacao(`Inserindo nó ${valor}...`);
+            raiz = insAVL(raiz, valor);
+            document.getElementById('nodeValue').value = '';
+            desenharArvore();
+            atualizarPercurso();
+        }
+
+        function removerNo() {
+            const valor = parseInt(document.getElementById('nodeValue').value);
+            if (isNaN(valor)) {
+                alert('Por favor, digite um valor válido');
+                return;
+            }
+
+            if (!buscarNo(raiz, valor)) {
+                alert('Valor não encontrado na árvore!');
+                return;
+            }
+
+            atualizarOperacao(`Removendo nó ${valor}...`);
+            raiz = remAVL(raiz, valor);
+            document.getElementById('nodeValue').value = '';
+            desenharArvore();
+            atualizarPercurso();
+        }
+
+        function gerarArvoreExemplo() {
+            const valores = [50, 30, 70, 20, 40, 60, 80, 10, 25, 35, 45, 5, 15, 55, 65, 75, 85];
+            raiz = null;
+            
+            atualizarOperacao('Gerando árvore de exemplo...');
+            valores.forEach(valor => {
+                raiz = insAVL(raiz, valor);
+            });
+            
+            desenharArvore();
+            atualizarPercurso();
+        }
+
+        function preOrdem(pt, resultado) {
+            if (pt === null) return;
+            resultado.push(`${pt.valor}(${pt.bal})`);
+            preOrdem(pt.esq, resultado);
+            preOrdem(pt.dir, resultado);
+        }
+
+        function ordemSimetrica(pt, resultado) {
+            if (pt === null) return;
+            ordemSimetrica(pt.esq, resultado);
+            resultado.push(`${pt.valor}(${pt.bal})`);
+            ordemSimetrica(pt.dir, resultado);
+        }
+
+        function posOrdem(pt, resultado) {
+            if (pt === null) return;
+            posOrdem(pt.esq, resultado);
+            posOrdem(pt.dir, resultado);
+            resultado.push(`${pt.valor}(${pt.bal})`);
+        }
+
+        function atualizarPercurso() {
+            const pre = [];
+            const sim = [];
+            const pos = [];
+            
+            preOrdem(raiz, pre);
+            ordemSimetrica(raiz, sim);
+            posOrdem(raiz, pos);
+            
+            document.getElementById('preOrdem').textContent = pre.join(' → ');
+            document.getElementById('ordemSimetrica').textContent = sim.join(' → ');
+            document.getElementById('posOrdem').textContent = pos.join(' → ');
+        }
+
+        function desenharArvore() {
+            const svg = document.getElementById('treeSVG');
+            svg.innerHTML = '';
+            
+            if (raiz === null) {
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", "50%");
+                text.setAttribute("y", "50%");
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("fill", "#666");
+                text.textContent = "Árvore vazia";
+                svg.appendChild(text);
+                return;
+            }
+
+            const largura = svg.clientWidth;
+            const altura = svg.clientHeight;
+            const raio = 20;
+            
+            function desenharNo(no, x, y, nivel) {
+                if (no === null) return;
+                
+                // Escolher cor baseada no fator de balanceamento
+                let cor;
+                if (no.bal === 0) cor = "#3B82F6"; // Azul - balanceado
+                else if (no.bal > 0) cor = "#EF4444"; // Vermelho - desbalanceado à direita
+                else cor = "#10B981"; // Verde - desbalanceado à esquerda
+                
+                const circulo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                circulo.setAttribute("cx", x);
+                circulo.setAttribute("cy", y);
+                circulo.setAttribute("r", raio);
+                circulo.setAttribute("fill", cor);
+                circulo.setAttribute("stroke", "#1F2937");
+                circulo.setAttribute("stroke-width", "2");
+                circulo.setAttribute("class", "node");
+                svg.appendChild(circulo);
+                
+                const texto = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                texto.setAttribute("x", x);
+                texto.setAttribute("y", y + 5);
+                texto.setAttribute("text-anchor", "middle");
+                texto.setAttribute("fill", "white");
+                texto.setAttribute("font-weight", "bold");
+                texto.textContent = no.valor;
+                svg.appendChild(texto);
+                
+                const balTexto = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                balTexto.setAttribute("x", x);
+                balTexto.setAttribute("y", y - raio - 5);
+                balTexto.setAttribute("text-anchor", "middle");
+                balTexto.setAttribute("fill", "#6B7280");
+                balTexto.setAttribute("font-size", "12");
+                balTexto.textContent = `bal: ${no.bal}`;
+                svg.appendChild(balTexto);
+                
+                const espacamento = largura / Math.pow(2, nivel + 2);
+                
+                if (no.esq !== null) {
+                    const linha = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    linha.setAttribute("x1", x);
+                    linha.setAttribute("y1", y + raio);
+                    linha.setAttribute("x2", x - espacamento);
+                    linha.setAttribute("y2", y + 80);
+                    linha.setAttribute("stroke", "#6B7280");
+                    linha.setAttribute("stroke-width", "2");
+                    svg.appendChild(linha);
+                    desenharNo(no.esq, x - espacamento, y + 80, nivel + 1);
+                }
+                
+                if (no.dir !== null) {
+                    const linha = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    linha.setAttribute("x1", x);
+                    linha.setAttribute("y1", y + raio);
+                    linha.setAttribute("x2", x + espacamento);
+                    linha.setAttribute("y2", y + 80);
+                    linha.setAttribute("stroke", "#6B7280");
+                    linha.setAttribute("stroke-width", "2");
+                    svg.appendChild(linha);
+                    desenharNo(no.dir, x + espacamento, y + 80, nivel + 1);
+                }
+            }
+            
+            desenharNo(raiz, largura / 2, 50, 1);
+        }
+
+        // Inicializar
+        window.onload = function() {
+            desenharArvore();
+            atualizarOperacao('Pronto para operações');
+        };
+
+        window.onresize = desenharArvore;
+
+        // Teste das rotações
+        function testarRotacoes() {
+            // Criar uma árvore desbalanceada para testar as rotações
+            let testeRaiz = new Node(30);
+            testeRaiz.esq = new Node(20);
+            testeRaiz.esq.esq = new Node(10);
+            
+            console.log("Antes da rotação:", testeRaiz);
+            testeRaiz = rotacaoDireita(testeRaiz);
+            console.log("Depois da rotação:", testeRaiz);
+        }
+    </script>
+</body>
+</html>
